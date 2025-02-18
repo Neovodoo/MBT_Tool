@@ -120,3 +120,4 @@ if __name__ == "__main__":
     # Генерируем и выводим тест-кейсы
     test_cases = generate_test_cases(endpoints)
     print_test_cases(test_cases)
+    print("For git")
