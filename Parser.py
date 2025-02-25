@@ -1,123 +1,83 @@
 import yaml
-import sys
+import argparse
+from typing import Dict, List
 
 
-def parse_openapi_endpoints(file_path: str) -> dict:
-    """
-    Парсит OpenAPI спецификацию и возвращает эндпоинты с методами
-    """
-    with open(file_path, 'r') as f:
-        spec = yaml.safe_load(f)
+class OpenAPISpec:
+    """Класс для работы с OpenAPI спецификацией"""
 
-    endpoints = {}
+    def __init__(self, file_path: str):
+        self.file_path = file_path
+        self.spec_data = self._load_spec()
 
-    # Шаг 1: Получаем все эндпоинты из раздела 'paths'
-    for path in spec.get('paths', {}):
-        endpoints[path] = []
+    def _load_spec(self) -> Dict:
+        """Загрузка спецификации из файла"""
+        with open(self.file_path, 'r') as file:
+            return yaml.safe_load(file)
 
-        # Шаг 2: Для каждого эндпоинта получаем методы
-        for method in spec['paths'][path]:
-            # Фильтруем только HTTP-методы
-            if method.lower() in {'get', 'post', 'put', 'delete', 'patch'}:
-                endpoints[path].append(method.upper())
+    def get_endpoints(self) -> List[str]:
+        """Извлечение списка эндпоинтов"""
+        return list(self.spec_data.get('paths', {}).keys())
 
-    return endpoints
-
-def print_endpoints(endpoints: dict):
-    """Печатает эндпоинты и методы в читаемом формате"""
-    for path, methods in endpoints.items():
-        print(f"\n{path}:")
-        for method in methods:
-            print(f"  → {method}")
+    def get_methods_for_endpoint(self, endpoint: str) -> List[str]:
+        """Извлечение методов для конкретного эндпоинта"""
+        methods = self.spec_data['paths'][endpoint].keys()
+        return [m.upper() for m in methods if m.lower() in {
+            'get', 'post', 'put', 'delete', 'patch', 'head', 'options', 'trace'
+        }]
 
 
-def generate_test_cases(endpoints: dict) -> list:
-    """
-    Генерирует тест-кейсы с предусловиями и постусловиями.
-    """
-    test_cases = []
-    test_number = 1
+class TestCase:
+    """Класс для представления тест-кейса"""
 
-    # Сопоставление методов с их зависимостями
-    dependency_map = {
-        'GET': {'pre': ['POST'], 'post': ['DELETE']},
-        'PUT': {'pre': ['POST'], 'post': ['DELETE']},
-        'DELETE': {'pre': ['POST'], 'post': []},
-        'POST': {'pre': [], 'post': ['DELETE']}  # Для POST проверяем отсутствие данных через GET
-    }
+    def __init__(self, case_id: int, endpoint: str, method: str):
+        self.case_id = case_id
+        self.endpoint = endpoint
+        self.method = method
 
-    for path in sorted(endpoints.keys()):
-        for method in sorted(endpoints[path], key=lambda m: ['GET', 'POST', 'PUT', 'DELETE'].index(m)):
-            test_case = {
-                'number': test_number,
-                'method': method,
-                'path': path,
-                'preconditions': [],
-                'steps': [],
-                'postconditions': []
-            }
-
-            # Определяем базовый путь для ресурса (например, /todos/{todoId} → /todos)
-            base_path = path.split('{')[0].rstrip('/') if '{' in path else path
-
-            # Генерация предусловий
-            for dep_method in dependency_map.get(method, {}).get('pre', []):
-                # Для GET/PUT/DELETE: создаем ресурс через POST
-                if dep_method == 'POST':
-                    pre_path = base_path
-                    test_case['preconditions'].append(
-                        f"Отправить запрос типа '{dep_method}' для эндпоинта '{pre_path}'"
-                    )
-
-            # Основной шаг теста
-            test_case['steps'].append(
-                f"Отправить запрос типа '{method}' для эндпоинта '{path}'"
-            )
-
-            # Генерация постусловий (очистка данных)
-            for dep_method in dependency_map.get(method, {}).get('post', []):
-                if dep_method == 'DELETE' and '{' in path:
-                    test_case['postconditions'].append(
-                        f"Отправить запрос типа '{dep_method}' для эндпоинта '{path}'"
-                    )
-
-            test_cases.append(test_case)
-            test_number += 1
-
-    return test_cases
+    def print(self):
+        """Вывод тест-кейса в консоль"""
+        print(f"Тест кейс {self.case_id}")
+        print("Шаги:")
+        print(f"Отправить запрос типа {self.method} для эндпоинта ({self.endpoint})")
+        print()
 
 
-def print_test_cases(test_cases: list):
-    """Форматированный вывод с условиями"""
-    print("\nСгенерированные тест-кейсы:")
-    for case in test_cases:
-        print(f"\nТест {case['number']}:")
-        if case['preconditions']:
-            print("  Предусловия:")
-            for pre in case['preconditions']:
-                print(f"    → {pre}")
-        print("  Шаги:")
-        for step in case['steps']:
-            print(f"    → {step}")
-        if case['postconditions']:
-            print("  Постусловия:")
-            for post in case['postconditions']:
-                print(f"    → {post}")
+class TestCaseGenerator:
+    """Класс для генерации тест-кейсов"""
 
+    def __init__(self, openapi_spec: OpenAPISpec):
+        self.openapi_spec = openapi_spec
+        self.test_cases: List[TestCase] = []
+
+    def generate(self):
+        """Основной метод генерации кейсов"""
+        case_id = 1
+        for endpoint in self.openapi_spec.get_endpoints():
+            for method in self.openapi_spec.get_methods_for_endpoint(endpoint):
+                self.test_cases.append(
+                    TestCase(case_id, endpoint, method)
+                )
+                case_id += 1
+
+    def print_cases(self):
+        """Вывод всех сгенерированных кейсов"""
+        for case in self.test_cases:
+            case.print()
+
+
+def main():
+    # Настройка аргументов командной строки
+    parser = argparse.ArgumentParser(description='Generate test cases from OpenAPI spec')
+    parser.add_argument('spec_file', type=str, help='Path to OpenAPI YAML file')
+    args = parser.parse_args()
+
+    # Инициализация и запуск генерации
+    spec = OpenAPISpec(args.spec_file)
+    generator = TestCaseGenerator(spec)
+    generator.generate()
+    generator.print_cases()
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python openapi_parser.py <openapi_file.yml>")
-        sys.exit(1)
-
-    file_path = sys.argv[1]
-    endpoints = parse_openapi_endpoints(file_path)
-
-    # Выводим базовую информацию
-    print_endpoints(endpoints)
-
-    # Генерируем и выводим тест-кейсы
-    test_cases = generate_test_cases(endpoints)
-    print_test_cases(test_cases)
-
+    main()
