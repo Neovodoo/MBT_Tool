@@ -1,0 +1,157 @@
+openapi: 3.0.0
+info:
+  title: Numbers API
+  version: "1.0.0"
+  description: >
+    The Numbers API provides interesting facts about numbers, including trivia, math, date, and year facts.
+    You can retrieve a fact by specifying a number or by requesting a random fact.
+servers:
+  - url: http://numbersapi.com
+paths:
+  /{number}:
+    get:
+      summary: Retrieve a number fact ( trivia)
+      description: >
+        Retrieve an interesting fact about a number. The fact type defaults to trivia if not specified.
+        Optionally, add the query parameter `json` to receive a JSON response.
+      parameters:
+        - name: number
+          in: path
+          description: The number for which to retrieve a fact. This can be a specific number or "random".
+          required: true
+          schema:
+            type: string
+        - name: json
+          in: query
+          description: If set to true, the response is returned in JSON format.
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: A fact about the number.
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "42 is the answer to life, the universe, and everything."
+            application/json:
+              schema:
+                type: object
+                properties:
+                  text:
+                    type: string
+                    example: "42 is the answer to life, the universe, and everything."
+                  number:
+                    type: number
+                    example: 42
+                  found:
+                    type: boolean
+                    example: true
+                  type:
+                    type: string
+                    example: trivia
+  /{number}/{factType}:
+    get:
+      summary: Retrieve a number fact of a specific type
+      description: >
+        Retrieve an interesting fact about a number by specifying the fact type.
+        The fact type can be one of the following: trivia, math, date, or year.
+        Use "random" as the number to get a random fact.
+      parameters:
+        - name: number
+          in: path
+          description: The number for which to retrieve a fact, or "random" for a random fact.
+          required: true
+          schema:
+            type: string
+        - name: factType
+          in: path
+          description: The type of fact to retrieve. Valid values trivia, math, date, year.
+          required: true
+          schema:
+            type: string
+            enum: [trivia, math, date, year]
+        - name: json
+          in: query
+          description: If set to true, the response is returned in JSON format.
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: A fact about the number.
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "42 is the answer to life, the universe, and everything."
+            application/json:
+              schema:
+                type: object
+                properties:
+                  text:
+                    type: string
+                    example: "42 is the answer to life, the universe, and everything."
+                  number:
+                    type: number
+                    example: 42
+                  found:
+                    type: boolean
+                    example: true
+                  type:
+                    type: string
+                    example: trivia
+  /{month}/{day}/date:
+    get:
+      summary: Retrieve a date fact
+      description: >
+        Retrieve an interesting fact about a specific date given by month and day.
+        Add the query parameter `json` to receive a JSON response.
+      parameters:
+        - name: month
+          in: path
+          description: The month of the date.
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+        - name: day
+          in: path
+          description: The day of the month.
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 31
+        - name: json
+          in: query
+          description: If set to true, the response is returned in JSON format.
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: A fact about the date.
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "June 21st is the longest day of the year in the Northern Hemisphere."
+            application/json:
+              schema:
+                type: object
+                properties:
+                  text:
+                    type: string
+                    example: "June 21st is the longest day of the year in the Northern Hemisphere."
+                  number:
+                    type: string
+                    example: "6/21"
+                  found:
+                    type: boolean
+                    example: true
+                  type:
+                    type: string
+                    example: date
