@@ -1,13 +1,12 @@
 from generator.parser import load_yaml, extract_paths
+from generator.generator import generate_test_cases
 
 if __name__ == "__main__":
     data = load_yaml('api.yaml')
     endpoints = extract_paths(data)
+    test_cases = generate_test_cases(endpoints)
 
-    print("Найденные эндпоинты:\n")
-    for endpoint in endpoints:
-        print(f"Путь: {endpoint.path}")
-        print(f"Метод: {endpoint.method}")
-        print(f"Описание: {endpoint.summary}")
-        print('-' * 20)
-
+    print("Сгенерированные тест-кейсы:\n")
+    for tc in test_cases:
+        print(tc.to_text())
+        print('-' * 30)
