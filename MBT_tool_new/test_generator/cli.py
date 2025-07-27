@@ -6,7 +6,8 @@ if __name__ == "__main__":
 
     print("Найденные эндпоинты:\n")
     for endpoint in endpoints:
-        print(f"Путь: {endpoint['path']}")
-        print(f"Метод: {endpoint['method']}")
-        print(f"Описание: {endpoint['summary']}")
+        print(f"Путь: {endpoint.path}")
+        print(f"Метод: {endpoint.method}")
+        print(f"Описание: {endpoint.summary}")
         print('-' * 20)
+
