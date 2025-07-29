@@ -6,8 +6,18 @@ paths:
   /users:
     get:
       summary: Get list of users
-    post:
-      summary: Create a new user
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
   /users/{id}:
     get:
       summary: Get a user by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
