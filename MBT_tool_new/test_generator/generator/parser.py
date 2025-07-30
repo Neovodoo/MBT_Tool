@@ -26,7 +26,7 @@ def extract_paths(yaml_data: dict) -> list:
                     in_=p['in'],
                     required=p.get('required', False),
                     type=p['schema']['type'],
-                    example=None  #TODO: Доработать позже
+                    example=p.get('example')
                 )
                 parameters.append(param)
 

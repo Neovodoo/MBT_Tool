@@ -18,6 +18,22 @@ class Endpoint:
     summary: str
     parameters: List[Parameter] = field(default_factory=list)
 
+    def generate_example_url(self) -> str:
+        url = self.path
+        query_params = []
+
+        for param in self.parameters:
+            example_value = param.example or f"<{param.name}>"
+            if param.in_ == 'path':
+                url = url.replace(f"{{{param.name}}}", str(example_value))
+            elif param.in_ == 'query':
+                query_params.append(f"{param.name}={example_value}")
+
+        if query_params:
+            url += '?' + '&'.join(query_params)
+
+        return url
+
 @dataclass
 class TestCase:
     name: str
@@ -33,7 +49,8 @@ class TestCase:
                 params_text += (
                     f" - {param.name} ({param.in_}), "
                     f"тип: {param.type}, "
-                    f"{'обязательный' if param.required else 'необязательный'}\n"
+                    f"{'обязательный' if param.required else 'необязательный'}, "
+                    f"пример: {param.example or 'нет'}\n"
                 )
         else:
             params_text = "Параметры: отсутствуют\n"

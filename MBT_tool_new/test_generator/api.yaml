@@ -12,6 +12,7 @@ paths:
           required: false
           schema:
             type: integer
+          example: 2
   /users/{id}:
     get:
       summary: Get a user by ID
@@ -21,3 +22,4 @@ paths:
           required: true
           schema:
             type: integer
+          example: 42
