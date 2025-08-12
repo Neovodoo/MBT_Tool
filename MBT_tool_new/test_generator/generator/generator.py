@@ -1,16 +1,5 @@
-from .models import Endpoint, TestCase
-
-
-def generate_test_cases(endpoints: list) -> list:
-    test_cases = []
-    for ep in endpoints:
-        name = ep.summary or f"{ep.method} {ep.path}"
-        description = f"Позитивный тест вызова {ep.method} {ep.path}"
-
-        test_case = TestCase(
-            name=name,
-            endpoint=ep,
-            description=description
-        )
-        test_cases.append(test_case)
-    return test_cases
+def save_test_cases_to_file(test_cases: list, filename: str):
+    with open(filename, 'w', encoding='utf-8') as f:
+        for test_case in test_cases:
+            f.write(test_case.to_text())
+            f.write('\n' + '-' * 50 + '\n\n')
