@@ -13,9 +13,9 @@ if __name__ == "__main__":
 
     for ep in endpoints:
         # генерация тела запроса из схемы
-        body = generate_request_body(ep.request_schema, components_schemas) if ep.request_schema else None
+        body = generate_request_body(ep.request_schema, yaml_data) if ep.request_schema else None
 
-        expected_body = generate_request_body(ep.response_schema, components_schemas) if ep.response_schema else None
+        expected_body = generate_request_body(ep.response_schema, yaml_data) if ep.response_schema else None
 
         # создание TestStep с расширенными параметрами
         step = TestStep(
@@ -41,3 +41,10 @@ if __name__ == "__main__":
     # Сохраняем в файл
     save_test_cases_to_file(test_cases, 'generated_test_cases_detailed.txt')
     print("Подробные тест-кейсы успешно сохранены!")
+
+
+
+#TODO: Добавить аргпарс
+#TODO: Добавить классы
+#TODO: Сделать диаграмму классу
+#TODO: Сделать описание алгоритма на естественном языке/блок схеме

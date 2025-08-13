@@ -1,5 +1,6 @@
 import yaml
 from .models import Endpoint, Parameter
+from .resolver import resolve_ref
 
 def load_yaml(file_path: str) -> dict:
     with open(file_path, 'r', encoding='utf-8') as f:
@@ -39,20 +40,25 @@ def _merge_parameters(path_level_params, method_level_params):
 
     return [merged[k] for k in order]
 
-def _extract_parameters(path: dict, details: dict) -> list:
+def _extract_parameters(path_items: dict, method_details: dict, openapi_spec: dict) -> list:
 
-    path_level_params = path.get('parameters', [])
-    method_level_params = details.get('parameters', [])
+    path_level_params = path_items.get('parameters', [])
+    method_level_params = method_details.get('parameters', [])
     parameters_list = _merge_parameters(path_level_params, method_level_params)
 
     params = []
     for p in parameters_list:
+
+        if isinstance(p, dict) and '$ref' in p:
+            p = resolve_ref(p, openapi_spec)
 
         name = p.get('name')
         in_ = p.get('in')
 
         #Логика обработки значение типа и схемы TODO: Нужно описать, понять и доработать добавив поддержку ссылок на схему
         schema = p.get('schema') or {}
+        if isinstance(schema, dict) and '$ref' in schema:
+            schema = resolve_ref(schema, openapi_spec)
         p_type = schema.get('type', 'string')
         example = p.get('example', schema.get('example'))
 
@@ -70,19 +76,35 @@ def _extract_parameters(path: dict, details: dict) -> list:
         ))
     return params
 
-def _extract_request_schema(details: dict):
-    return (details.get('requestBody', {})
-                  .get('content', {})
-                  .get('application/json', {})
-                  .get('schema'))
+def _extract_request_schema(method_details: dict, openapi_spec: dict):
+    rb = method_details.get('requestBody')
+    if not rb:
+        return None
+    if isinstance(rb, dict) and '$ref' in rb:
+        rb = resolve_ref(rb, openapi_spec)
 
-def _extract_success_response(responses: dict):
-    success_code = next((c for c in ['200', '201', '202'] if c in responses), None)
+    content = rb.get('content', {}) if isinstance(rb, dict) else {}
+    app_json = content.get('application/json')
+    if not app_json:
+        return None
+    schema = app_json.get('schema')
+    if isinstance(schema, dict) and '$ref' in schema:
+        schema = resolve_ref(schema, openapi_spec)
+    return schema
+
+def _extract_success_response(responses: dict, openapi_spec: dict):
+    success_code = next((c for c in ['200', '201', '202'] if c in responses), None) #TODO: Сделать регулярку для выбора кодов, чтобы начинались с 20х
     schema = None
     if success_code:
-        content = responses[success_code].get('content', {})
-        if 'application/json' in content:
-            schema = content['application/json'].get('schema')
+        resp = responses[success_code]
+        if isinstance(resp, dict) and '$ref' in resp:
+            resp = resolve_ref(resp, openapi_spec)
+        content = resp.get('content', {}) if isinstance(resp, dict) else {}
+        app_json = content.get('application/json')
+        if app_json:
+            schema = app_json.get('schema')
+            if isinstance(schema, dict) and '$ref' in schema:
+                schema = resolve_ref(schema, openapi_spec)
     return success_code, schema
 
 def extract_paths(openapi_spec: dict) -> list:
@@ -94,11 +116,11 @@ def extract_paths(openapi_spec: dict) -> list:
 
             summary = _extract_summary(method_details)
 
-            merged_parameters = _extract_parameters(path_items, method_details)
+            merged_parameters = _extract_parameters(path_items, method_details, openapi_spec)
 
-            request_schema = _extract_request_schema(method_details)
+            request_schema = _extract_request_schema(method_details, openapi_spec)
 
-            success_code, response_schema = _extract_success_response(method_details.get('responses', {}))
+            success_code, response_schema = _extract_success_response(method_details.get('responses', {}), openapi_spec)
 
             endpoints.append(Endpoint(
                 path=path_block,

@@ -1,7 +1,9 @@
 import yaml
 import pytest
 from MBT_tool_new.test_generator.generator.parser import _is_http_method, extract_paths, _merge_parameters, _extract_parameters, _extract_request_schema, _extract_success_response
+#TODO: Вынести схемы в тестовые данные и вызывать их оттуда
 
+ROOT_EMPTY = {"openapi": "3.0.3", "paths": {}, "components": {}}
 
 def test_is_http_method_case_insensitive():
     assert _is_http_method("get")
@@ -55,7 +57,7 @@ def test_parameters_merge_order_and_override():
     ]
 
     # полный объект параметров после _extract_parameters
-    params = _extract_parameters(path_item, operation)
+    params = _extract_parameters(path_item, operation, ROOT_EMPTY)
     assert [(p.name, p.in_, p.type, p.example) for p in params] == [
         ("app", "path", "string", "shop"),
         ("pipeline", "path", "string", None),
@@ -65,17 +67,17 @@ def test_parameters_merge_order_and_override():
 def test_extract_parameters_defaults_and_skips_invalid():
     path_item = {"parameters": [{"schema": {"type": "string"}}]}  # нет name/in -> пропуск
     operation = {"parameters": [{"name": "q", "in": "query", "schema": {"type": "string"}}]}
-    params = _extract_parameters(path_item, operation)
+    params = _extract_parameters(path_item, operation, ROOT_EMPTY)
     assert len(params) == 1
     assert params[0].name == "q" and params[0].in_ == "query" and params[0].type == "string"
 
     # если schema отсутствует -> type по умолчанию "string" (текущая логика)
     path_item2 = {"parameters": [{"name": "X-Req", "in": "header"}]}
     operation2 = {"parameters": []}
-    params2 = _extract_parameters(path_item2, operation2)
+    params2 = _extract_parameters(path_item2, operation2, ROOT_EMPTY)
     assert params2[0].type == "string"
 
-# ------- Request Body layer -------
+
 def test_extract_request_schema_prefers_application_json():
     op = {
         "requestBody": {
@@ -85,15 +87,15 @@ def test_extract_request_schema_prefers_application_json():
             }
         }
     }
-    sch = _extract_request_schema(op)
+    sch = _extract_request_schema(op, ROOT_EMPTY)
     assert sch == {"type": "object", "properties": {"a": {"type": "string"}}}
 
     # отсутствие application/json
     op2 = {"requestBody": {"content": {"text/plain": {"schema": {"type": "string"}}}}}
-    assert _extract_request_schema(op2) is None
+    assert _extract_request_schema(op2, ROOT_EMPTY) is None
 
     # отсутствие requestBody
-    assert _extract_request_schema({}) is None
+    assert _extract_request_schema({}, ROOT_EMPTY) is None
 
 def test_extract_success_response_prefers_200_then_201_then_202():
     responses = {
@@ -101,19 +103,19 @@ def test_extract_success_response_prefers_200_then_201_then_202():
         "200": {"content": {"application/json": {"schema": {"type": "string"}}}},
         "202": {"content": {"application/json": {"schema": {"type": "integer"}}}},
     }
-    code, sch = _extract_success_response(responses)
+    code, sch = _extract_success_response(responses, ROOT_EMPTY)
     assert code == "200" and sch == {"type": "string"}
 
     # только 201
-    code2, sch2 = _extract_success_response({"201": {"content": {"application/json": {"schema": {"type": "integer"}}}}})
+    code2, sch2 = _extract_success_response({"201": {"content": {"application/json": {"schema": {"type": "integer"}}}}}, ROOT_EMPTY)
     assert code2 == "201" and sch2 == {"type": "integer"}
 
     # есть код, но нет application/json
-    code3, sch3 = _extract_success_response({"200": {"content": {"text/plain": {"schema": {"type": "string"}}}}})
+    code3, sch3 = _extract_success_response({"200": {"content": {"text/plain": {"schema": {"type": "string"}}}}}, ROOT_EMPTY)
     assert code3 == "200" and sch3 is None
 
     # нет 200/201/202
-    code4, sch4 = _extract_success_response({"404": {"description": "not found"}})
+    code4, sch4 = _extract_success_response({"404": {"description": "not found"}}, ROOT_EMPTY)
     assert code4 is None and sch4 is None
 
 
@@ -167,3 +169,88 @@ def test_extract_paths_assembles_endpoint_from_layers():
     assert e_health.response_success_code == "200"
     assert e_health.response_schema is None  # нет application/json
     assert e_health.parameters == []
+
+def test_success_response_via_ref_is_resolved():
+    spec = {
+        "paths": {
+            "/t": {
+                "get": {
+                    "responses": {
+                        "200": {"$ref": "#/components/responses/trial"}
+                    }
+                }
+            }
+        },
+        "components": {
+            "responses": {
+                "trial": {
+                    "content": {
+                        "application/json": {
+                            "schema": {"$ref": "#/components/schemas/TrialResponse"}
+                        }
+                    }
+                }
+            },
+            "schemas": {
+                "TrialResponse": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}, "ok": {"type": "boolean"}},
+                    "required": ["id", "ok"]
+                }
+            }
+        }
+    }
+    eps = extract_paths(spec)
+    assert eps[0].response_success_code == "200"
+    assert eps[0].response_schema == {
+        "type": "object",
+        "properties": {"id": {"type": "string"}, "ok": {"type": "boolean"}},
+        "required": ["id", "ok"]
+    }
+
+
+def test_extract_success_response_via_ref_resolves_schema():
+    spec = {
+        "paths": {},
+        "components": {
+            "responses": {
+                "trial": {
+                    "content": {
+                        "application/json": {
+                            "schema": {"$ref": "#/components/schemas/TrialResponse"}
+                        }
+                    }
+                }
+            },
+            "schemas": {
+                "TrialResponse": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}, "status": {"enum": ["CREATED", "DONE"]}},
+                    "required": ["id", "status"]
+                }
+            }
+        }
+    }
+    responses = {"200": {"$ref": "#/components/responses/trial"}}
+    code, sch = _extract_success_response(responses, spec)
+    assert code == "200"
+    assert sch == {
+        "type": "object",
+        "properties": {"id": {"type": "string"}, "status": {"enum": ["CREATED", "DONE"]}},
+        "required": ["id", "status"],
+    }
+
+def test_extract_parameters_via_ref_is_resolved():
+    spec = {
+        "paths": {},
+        "components": {
+            "parameters": {
+                "Q": {"name": "q", "in": "query", "required": False, "schema": {"type": "string"}, "example": "hello"}
+            }
+        }
+    }
+    path_item = {"parameters": [{"$ref": "#/components/parameters/Q"}]}
+    operation = {"parameters": []}
+    params = _extract_parameters(path_item, operation, spec)
+    assert len(params) == 1
+    assert (params[0].name, params[0].in_, params[0].type, params[0].example) == ("q", "query", "string", "hello")
