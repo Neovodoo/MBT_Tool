@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Any
 
 from models.test_cases_blocks.NameBlock import NameBlock
+from models.test_cases_blocks.EnvironmentBlock import EnvironmentBlock
 
 
 SEPARATOR_LINE = "-" * 90
@@ -10,10 +11,12 @@ SEPARATOR_LINE = "-" * 90
 @dataclass
 class TestCase:
     name_block: NameBlock
+    environment_block: EnvironmentBlock
 
     def to_text(self) -> str:
         parts: List[str] = [SEPARATOR_LINE]
         parts.extend(self.name_block.to_text())
+        parts.extend(self.environment_block.to_text())
         return "\n".join(parts)
 
     @classmethod
@@ -35,9 +38,13 @@ class TestCase:
                 name.extract_description(method_details)
                 name.generate_name(path, method)
 
+                environment = EnvironmentBlock()
+                environment.extract_servers(openapi_spec)
+
 
                 test_case = cls(
-                    name_block=name
+                    name_block=name,
+                    environment_block=environment
                 )
 
                 cases.append(test_case)
