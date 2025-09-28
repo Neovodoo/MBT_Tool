@@ -5,6 +5,8 @@ from models.test_cases_blocks.NameBlock import NameBlock
 from models.test_cases_blocks.EnvironmentBlock import EnvironmentBlock
 from models.test_cases_blocks.ExpectedResultBlock import ExpectedResultBlock
 
+from utils.ReferenceResolver import reference_resolver
+
 
 SEPARATOR_LINE = "-" * 90
 
@@ -24,6 +26,8 @@ class TestCase:
 
     @classmethod
     def generate_test_cases(cls, openapi_spec: Dict[str, Any]) -> List["TestCase"]:
+        reference_resolver.initialize_data(openapi_spec)
+
         cases: List[TestCase] = []
 
         paths = openapi_spec.get("paths", {}) or {}
@@ -47,6 +51,7 @@ class TestCase:
 
                 expected_result = ExpectedResultBlock()
                 expected_result.extract_status(method_details)
+                expected_result.extract_body(method_details, reference_resolver)
 
 
 

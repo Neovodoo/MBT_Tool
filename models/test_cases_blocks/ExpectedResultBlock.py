@@ -1,6 +1,9 @@
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
+from utils.ReferenceResolver import ReferenceResolver
+from utils.BodyGenerator import generate_request_body
+
 
 @dataclass
 class ExpectedResultBlock:
@@ -15,7 +18,7 @@ class ExpectedResultBlock:
             "\n"
             "- Тело ответа:",
         ]
-        if self.expectedResponseBody is None:
+        if self.expectedResponseBody is None or "additional_info" in self.expectedResponseBody:
             lines.append("Тело ответа отсутствует")
         else:
             lines.extend(json.dumps(self.expectedResponseBody, ensure_ascii=False, indent=2).splitlines())
@@ -32,3 +35,18 @@ class ExpectedResultBlock:
             return self.expectedResponseStatus
         self.expectedResponseStatus = ""
         return None
+
+    def extract_body(self, method_details: Dict[str, Any], resolver: ReferenceResolver) -> Any:
+        responses = method_details.get("responses", {}) or {}
+        code = self.extract_status(method_details)
+        resp = responses.get(code) if code else None
+        if isinstance(resp, dict) and "$ref" in resp:
+            resp = resolver.resolve_ref(resp) or {}
+        content = (resp or {}).get("content", {})
+        media = content.get("application/json") or next(iter(content.values()), None)
+        body = None
+        if isinstance(media, dict):
+            schema = media.get("schema") or {}
+            body = generate_request_body(schema, resolver)
+        self.expectedResponseBody = body
+        return body
