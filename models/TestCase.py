@@ -3,6 +3,7 @@ from typing import List, Dict, Any
 
 from models.test_cases_blocks.NameBlock import NameBlock
 from models.test_cases_blocks.EnvironmentBlock import EnvironmentBlock
+from models.test_cases_blocks.ExpectedResultBlock import ExpectedResultBlock
 
 
 SEPARATOR_LINE = "-" * 90
@@ -12,11 +13,13 @@ SEPARATOR_LINE = "-" * 90
 class TestCase:
     name_block: NameBlock
     environment_block: EnvironmentBlock
+    expected_result_block: ExpectedResultBlock
 
     def to_text(self) -> str:
         parts: List[str] = [SEPARATOR_LINE]
         parts.extend(self.name_block.to_text())
         parts.extend(self.environment_block.to_text())
+        parts.extend(self.expected_result_block.to_text())
         return "\n".join(parts)
 
     @classmethod
@@ -42,9 +45,16 @@ class TestCase:
                 environment.extract_servers(openapi_spec)
 
 
+                expected_result = ExpectedResultBlock()
+                expected_result.extract_status(method_details)
+
+
+
+
                 test_case = cls(
                     name_block=name,
-                    environment_block=environment
+                    environment_block=environment,
+                    expected_result_block=expected_result
                 )
 
                 cases.append(test_case)
