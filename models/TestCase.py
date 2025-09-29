@@ -5,6 +5,7 @@ from models.test_cases_blocks.NameBlock import NameBlock
 from models.test_cases_blocks.EnvironmentBlock import EnvironmentBlock
 from models.test_cases_blocks.ExpectedResultBlock import ExpectedResultBlock
 from models.test_cases_blocks.TestStepBlock import TestStepsBlock
+from models.test_cases_blocks.PreconditionsBlock import PreconditionsBlock
 
 from utils.ReferenceResolver import reference_resolver
 
@@ -18,11 +19,13 @@ class TestCase:
     environment_block: EnvironmentBlock
     expected_result_block: ExpectedResultBlock
     test_step_block: TestStepsBlock
+    preconditions_block: PreconditionsBlock
 
     def to_text(self) -> str:
         parts: List[str] = [SEPARATOR_LINE]
         parts.extend(self.name_block.to_text())
         parts.extend(self.environment_block.to_text())
+        parts.extend(self.preconditions_block.to_text())
         parts.extend(self.test_step_block.to_text())
         parts.extend(self.expected_result_block.to_text())
         return "\n".join(parts)
@@ -51,6 +54,8 @@ class TestCase:
                 environment = EnvironmentBlock()
                 environment.extract_servers(openapi_spec)
 
+                preconditions = PreconditionsBlock()
+                preconditions.fill_preconditions_block(path, method, path_item, reference_resolver)
 
                 test_step = TestStepsBlock()
                 test_step.fillTestStepBlock(path, method, path_item, method_details, reference_resolver)
@@ -67,7 +72,8 @@ class TestCase:
                     name_block=name,
                     environment_block=environment,
                     expected_result_block=expected_result,
-                    test_step_block=test_step
+                    test_step_block=test_step,
+                    preconditions_block=preconditions
                 )
 
                 cases.append(test_case)
