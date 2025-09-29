@@ -7,11 +7,15 @@ class Step:
     path: str = ""
     method: str = ""
     path_parameters: List[Parameter] = field(default_factory=list)
+    query_parameters: List[Parameter] = field(default_factory=list)
+    headers: List[Parameter] = field(default_factory=list)
 
     def extract_data(self, path: str, method: str, path_item: dict, method_details: dict) -> None:
         self.extract_path(path)
         self.extract_method(method)
         self.extract_path_parameters(path_item, method_details)
+        self.extract_query_parameters(path_item, method_details)
+        self.extract_headers(path_item, method_details)
 
     def extract_path(self, path: str) -> str:
         self.path = path
@@ -28,6 +32,20 @@ class Step:
                 self.path_parameters.append(parameter)
         return self.path_parameters
 
+    def extract_query_parameters(self, path_item: dict, method_details: dict):
+        parameters = Parameter.extract_data_for_parameters_list(path_item, method_details)
+        for parameter in parameters:
+            if parameter.in_ == "query":
+                self.query_parameters.append(parameter)
+        return self.query_parameters
+
+    def extract_headers(self, path_item: dict, method_details: dict):
+        parameters = Parameter.extract_data_for_parameters_list(path_item, method_details)
+        for parameter in parameters:
+            if parameter.in_ == "header":
+                self.headers.append(parameter)
+        return self.headers
+
 
 
     def to_text(self) -> List[str]:
@@ -35,7 +53,28 @@ class Step:
         lines.append("")
         lines.append("- URL: " + self.path)
         lines.append("")
+
+        lines.append("- Заголовки запроса:")
+        if len(self.headers) == 0:
+            lines.append("")
+            lines.append("      - Заголовки отсутствуют")
+        for h in self.headers:
+            lines.append(h.to_line())
+
+        lines.append("")
         lines.append("- Параметры пути:")
+        if len(self.path_parameters)== 0:
+            lines.append("")
+            lines.append("      - Параметры пути отсутствуют")
         for p in self.path_parameters:
             lines.append(p.to_line())
+
+        lines.append("")
+        lines.append("- Параметры запроса:")
+        if len(self.query_parameters) == 0:
+            lines.append("")
+            lines.append("      - Параметры запроса отсутствуют")
+        for p in self.query_parameters:
+            lines.append(p.to_line())
+
         return lines
