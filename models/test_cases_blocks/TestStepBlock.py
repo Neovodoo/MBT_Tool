@@ -8,14 +8,13 @@ SEPARATOR_LINE = "-" * 20
 class TestStepsBlock:
     steps: List[Step] = field(default_factory=list)
 
-    def fillTestStepBlock(self, path: str, method: str):
+    def fillTestStepBlock(self, path: str, method: str, path_item: dict, method_details: dict):
         for step in self.steps:
             if step.path == path and step.method.upper() == method.upper():
                 step.extract_data(path, method)
                 return step
-
         step = Step()
-        step.extract_data(path, method)
+        step.extract_data(path, method, path_item, method_details)
         self.steps.append(step)
         return step
 
