@@ -1,7 +1,9 @@
+import json
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
 from models.parameter.Parameter import Parameter
 from utils.ReferenceResolver import ReferenceResolver
+from utils.BodyGenerator import generate_request_body
 
 @dataclass
 class Step:
@@ -10,6 +12,7 @@ class Step:
     path_parameters: List[Parameter] = field(default_factory=list)
     query_parameters: List[Parameter] = field(default_factory=list)
     headers: List[Parameter] = field(default_factory=list)
+    requestBody: Any = None
 
     def extract_data(self, path: str, method: str, path_item: dict, method_details: dict, resolver: ReferenceResolver) -> None:
         self.extract_path(path)
@@ -17,6 +20,7 @@ class Step:
         self.extract_path_parameters(path_item, method_details, resolver)
         self.extract_query_parameters(path_item, method_details, resolver)
         self.extract_headers(path_item, method_details, resolver)
+        self.extract_body(method_details, resolver)
 
     def extract_path(self, path: str) -> str:
         self.path = path
@@ -47,7 +51,21 @@ class Step:
                 self.headers.append(parameter)
         return self.headers
 
-
+    def extract_body(self, method_details: Dict[str, Any], resolver: ReferenceResolver) -> Any:
+        rb = method_details.get("requestBody")
+        if not rb:
+            self.requestBody = None
+            return None
+        if "$ref" in rb:
+            rb = resolver.resolve_ref(rb["$ref"]) or {}
+        content = rb.get("content", {}) if isinstance(rb, dict) else {}
+        media = content.get("application/json") or next(iter(content.values()), None)
+        if not isinstance(media, dict):
+            self.requestBody = None
+            return None
+        schema = media.get("schema") or {}
+        self.requestBody = generate_request_body(schema, resolver)
+        return self.requestBody
 
     def to_text(self) -> List[str]:
         lines = ["- Метод: " + self.method]
@@ -77,5 +95,13 @@ class Step:
             lines.append("      - Параметры запроса отсутствуют")
         for p in self.query_parameters:
             lines.append(p.to_line())
+
+        lines.append("")
+        lines.append("- Тело запроса:")
+        if self.requestBody is None or "additional_info" in self.requestBody:
+            lines.append("")
+            lines.append("      Тело запроса отсутствует")
+        else:
+            lines.extend(json.dumps(self.requestBody, ensure_ascii=False, indent=2).splitlines())
 
         return lines
