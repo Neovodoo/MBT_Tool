@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List
 from models.Step import Step
+from utils.ReferenceResolver import ReferenceResolver
 
 SEPARATOR_LINE = "-" * 20
 
@@ -8,13 +9,13 @@ SEPARATOR_LINE = "-" * 20
 class TestStepsBlock:
     steps: List[Step] = field(default_factory=list)
 
-    def fillTestStepBlock(self, path: str, method: str, path_item: dict, method_details: dict):
+    def fillTestStepBlock(self, path: str, method: str, path_item: dict, method_details: dict, resolver: ReferenceResolver):
         for step in self.steps:
             if step.path == path and step.method.upper() == method.upper():
                 step.extract_data(path, method)
                 return step
         step = Step()
-        step.extract_data(path, method, path_item, method_details)
+        step.extract_data(path, method, path_item, method_details, resolver)
         self.steps.append(step)
         return step
 

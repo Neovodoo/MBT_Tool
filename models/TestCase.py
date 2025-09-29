@@ -53,7 +53,7 @@ class TestCase:
 
 
                 test_step = TestStepsBlock()
-                test_step.fillTestStepBlock(path, method, path_item, method_details)
+                test_step.fillTestStepBlock(path, method, path_item, method_details, reference_resolver)
 
 
                 expected_result = ExpectedResultBlock()
