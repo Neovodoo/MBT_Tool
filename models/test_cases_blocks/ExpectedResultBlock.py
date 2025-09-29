@@ -5,6 +5,8 @@ from utils.ReferenceResolver import ReferenceResolver
 from utils.BodyGenerator import generate_request_body
 
 
+SEPARATOR_LINE = "-" * 20
+
 @dataclass
 class ExpectedResultBlock:
     expectedResponseStatus: str = ""
@@ -22,6 +24,8 @@ class ExpectedResultBlock:
             lines.append("Тело ответа отсутствует")
         else:
             lines.extend(json.dumps(self.expectedResponseBody, ensure_ascii=False, indent=2).splitlines())
+        lines.append("")
+        lines.append(SEPARATOR_LINE)
         return lines
 
     def extract_status(self, method_details: Dict[str, Any]) -> Optional[str]:
